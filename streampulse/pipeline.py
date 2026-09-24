@@ -1,9 +1,10 @@
 """Chains operators and runs a source through them.
 
-v0.1 processes events one offset at a time so that, from v0.5, a checkpoint can
-be taken between offsets and the source resumed from the last committed one.
-`run` returns the list of output events; `run_tracked` also returns the last
-offset processed (the seam checkpointing will hook into).
+The operator chain is applied ONCE over the whole event stream -- operators are
+standing, stateful stages that see a continuous stream (a windowing or
+aggregation operator keeps state across events; it must not be re-instantiated
+per event). Offsets are tracked as a side effect of pulling from the source: the
+last offset seen is available for checkpointing (v0.5).
 """
 from typing import List, Tuple
 
@@ -28,9 +29,12 @@ class Pipeline:
 
     def run_tracked(self, source: ReplayableSource, start_offset: int = 0
                     ) -> Tuple[List[Event], int]:
-        out: List[Event] = []
-        last_offset = start_offset - 1
-        for off, event in source.read_from(start_offset):
-            out.extend(self._apply([event]))
-            last_offset = off
-        return out, last_offset
+        tracker = {"last": start_offset - 1}
+
+        def tracked_events():
+            for off, event in source.read_from(start_offset):
+                tracker["last"] = off
+                yield event
+
+        out = list(self._apply(tracked_events()))
+        return out, tracker["last"]

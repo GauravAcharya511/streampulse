@@ -10,13 +10,13 @@ Durable keyed state and checkpoints are backed by
 engine I built — so this project is the streaming layer on top of a storage
 engine, both from scratch.
 
-> Status: **v0.2** — keyed state with pluggable backends (in-memory + lsmdb),
-> stateful running aggregation. Roadmap below.
+> Status: **v0.3** — event-time tumbling windows with watermarks and
+> out-of-order / late-event handling. Roadmap below.
 
 ## Roadmap
 - **v0.1** — event model + replayable source + operator pipeline (map/filter) ✅
 - **v0.2** — keyed state backed by lsmdb (running per-key aggregation) ✅
-- **v0.3** — event-time tumbling windows + watermarks
+- **v0.3** — event-time tumbling windows + watermarks ✅
 - **v0.4** — out-of-order / late event handling (allowed lateness)
 - **v0.5** — checkpointing: atomic snapshot of state + source offset
 - **v0.6** — exactly-once demo: crash mid-stream, restore, no loss / no double-count
@@ -57,3 +57,23 @@ backend.close()
 ```
 
 Install the lsmdb backend:  `pip install -e ".[lsmdb]"`
+
+## Event-time windows (v0.3)
+
+Tumbling windows keyed per event, fired by a watermark once event-time passes the
+window's end. `max_out_of_orderness` sets how long to wait for stragglers; events
+arriving after their window fires are counted as late.
+
+```python
+from streampulse import (ReplayableSource, Pipeline, EventTimeTumblingWindow,
+                         MemoryStateBackend, Event)
+
+op = EventTimeTumblingWindow(size=10, backend=MemoryStateBackend(),
+                             max_out_of_orderness=2)
+out = Pipeline(op).run(ReplayableSource([
+    Event("a", 1, 0), Event("a", 1, 5), Event("a", 1, 12),
+]))
+# window [0,10) fires when the watermark (12-2=10) reaches its end:
+#   {"count": 2, "sum": 2, "window_start": 0, "window_end": 10}
+print(op.late_count)   # events dropped for arriving after their window fired
+```

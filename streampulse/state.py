@@ -20,6 +20,10 @@ class StateBackend(ABC):
     def put(self, key: str, value: bytes) -> None:
         ...
 
+    @abstractmethod
+    def delete(self, key: str) -> None:
+        ...
+
     def close(self) -> None:
         pass
 
@@ -33,6 +37,9 @@ class MemoryStateBackend(StateBackend):
 
     def put(self, key: str, value: bytes) -> None:
         self._d[key] = value
+
+    def delete(self, key: str) -> None:
+        self._d.pop(key, None)
 
 
 class LsmdbStateBackend(StateBackend):
@@ -48,6 +55,9 @@ class LsmdbStateBackend(StateBackend):
 
     def put(self, key: str, value: bytes) -> None:
         self._db.put(key, value)
+
+    def delete(self, key: str) -> None:
+        self._db.delete(key)
 
     def close(self) -> None:
         self._db.close()
