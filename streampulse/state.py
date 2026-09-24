@@ -1,3 +1,4 @@
+import base64
 """Pluggable state backends for keyed state (the Flink pattern).
 
 A backend is a durable-or-not key/value store the streaming operators use to hold
@@ -40,6 +41,12 @@ class MemoryStateBackend(StateBackend):
 
     def delete(self, key: str) -> None:
         self._d.pop(key, None)
+
+    def snapshot(self) -> dict:
+        return {k: base64.b64encode(v).decode("ascii") for k, v in self._d.items()}
+
+    def restore(self, snap: dict) -> None:
+        self._d = {k: base64.b64decode(v) for k, v in snap.items()}
 
 
 class LsmdbStateBackend(StateBackend):

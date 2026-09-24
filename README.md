@@ -10,15 +10,15 @@ Durable keyed state and checkpoints are backed by
 engine I built — so this project is the streaming layer on top of a storage
 engine, both from scratch.
 
-> Status: **v0.4** — allowed lateness (late firing) and a side-output stream
-> for too-late events. Roadmap below.
+> Status: **v0.5** — periodic checkpointing (operator state + source offset)
+> with atomic, durable snapshots and resumable recovery. Roadmap below.
 
 ## Roadmap
 - **v0.1** — event model + replayable source + operator pipeline (map/filter) ✅
 - **v0.2** — keyed state backed by lsmdb (running per-key aggregation) ✅
 - **v0.3** — event-time tumbling windows + watermarks ✅
 - **v0.4** — out-of-order / late event handling (allowed lateness) ✅
-- **v0.5** — checkpointing: atomic snapshot of state + source offset
+- **v0.5** — checkpointing: atomic snapshot of state + source offset ✅
 - **v0.6** — exactly-once demo: crash mid-stream, restore, no loss / no double-count
 - **v0.7** — benchmarks + full README
 
@@ -93,3 +93,25 @@ out = Pipeline(op).run(ReplayableSource([
 ]))
 op.side_output   # [] here; would hold events too late for the grace period
 ```
+
+## Checkpointing (v0.5)
+
+`StreamRunner` snapshots every operator's state plus the source offset every N
+events and commits it atomically to a durable `CheckpointStore` (backed by
+lsmdb). After a crash, a fresh runner restores that state and resumes from the
+offset after the last checkpoint -- producing results identical to an
+uninterrupted run.
+
+```python
+from streampulse import (StreamRunner, CheckpointStore, LsmdbStateBackend,
+                         Pipeline, EventTimeTumblingWindow, MemoryStateBackend)
+
+store = CheckpointStore(LsmdbStateBackend("ckpt"))          # durable
+op = EventTimeTumblingWindow(10, MemoryStateBackend())      # in-memory working state
+runner = StreamRunner(Pipeline(op), store=store, checkpoint_every=1000)
+out = runner.run(source)     # a later run() restores from `store` and resumes
+```
+
+Working state is in-memory; only checkpoints are durable. So a crash discards
+everything since the last checkpoint and replay reproduces it exactly -- the
+basis for the exactly-once recovery demo in v0.6.

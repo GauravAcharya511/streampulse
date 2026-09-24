@@ -42,10 +42,15 @@ class KeyedAggregate(Operator):
         self._backend = backend
         self._agg = aggregator or RunningCountSum()
 
-    def process(self, events):
-        for e in events:
-            blob = self._backend.get(e.key)
-            state = self._agg.loads(blob) if blob is not None else self._agg.initial()
-            state = self._agg.combine(state, e)
-            self._backend.put(e.key, self._agg.dumps(state))
-            yield e.with_value(self._agg.output(state))
+    def push(self, e):
+        blob = self._backend.get(e.key)
+        state = self._agg.loads(blob) if blob is not None else self._agg.initial()
+        state = self._agg.combine(state, e)
+        self._backend.put(e.key, self._agg.dumps(state))
+        return (e.with_value(self._agg.output(state)),)
+
+    def snapshot(self):
+        return {"backend": self._backend.snapshot()}
+
+    def restore(self, state):
+        self._backend.restore(state["backend"])

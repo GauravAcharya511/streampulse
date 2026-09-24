@@ -5,10 +5,12 @@ from .pipeline import Pipeline
 from .state import StateBackend, MemoryStateBackend, LsmdbStateBackend
 from .aggregate import KeyedAggregate, RunningCountSum, Aggregator
 from .windows import EventTimeTumblingWindow
+from .checkpoint import CheckpointStore
+from .runner import StreamRunner
 
 __all__ = [
     "Event", "ReplayableSource", "gen_events", "Map", "Filter", "Pipeline",
     "StateBackend", "MemoryStateBackend", "LsmdbStateBackend",
     "KeyedAggregate", "RunningCountSum", "Aggregator",
-    "EventTimeTumblingWindow",
+    "EventTimeTumblingWindow", "CheckpointStore", "StreamRunner",
 ]
