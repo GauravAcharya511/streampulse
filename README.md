@@ -16,8 +16,8 @@ storage engine, both my own** — a small two-system data platform.
 
 | Metric | Result |
 |---|---|
-| Windowed aggregation throughput | ~168,000 events/sec |
-| Checkpointing overhead (durable, every 1000 events) | **2.4%** |
+| Windowed aggregation throughput | ~267,000 events/sec |
+| Checkpointing overhead (durable, every 1000 events) | **<1%** (within measurement noise) |
 | Recovery from checkpoint | **<1 ms** |
 | Exactly-once under real `SIGKILL` | no loss, no double count (`demo_exactly_once.py`) |
 
