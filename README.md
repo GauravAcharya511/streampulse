@@ -10,8 +10,8 @@ Durable keyed state and checkpoints are backed by
 engine I built — so this project is the streaming layer on top of a storage
 engine, both from scratch.
 
-> Status: **v0.5** — periodic checkpointing (operator state + source offset)
-> with atomic, durable snapshots and resumable recovery. Roadmap below.
+> Status: **v0.6** — exactly-once crash recovery, demonstrated with a real
+> process kill (SIGKILL). Roadmap below.
 
 ## Roadmap
 - **v0.1** — event model + replayable source + operator pipeline (map/filter) ✅
@@ -19,7 +19,7 @@ engine, both from scratch.
 - **v0.3** — event-time tumbling windows + watermarks ✅
 - **v0.4** — out-of-order / late event handling (allowed lateness) ✅
 - **v0.5** — checkpointing: atomic snapshot of state + source offset ✅
-- **v0.6** — exactly-once demo: crash mid-stream, restore, no loss / no double-count
+- **v0.6** — exactly-once demo: crash mid-stream, restore, no loss / no double-count ✅
 - **v0.7** — benchmarks + full README
 
 ## Usage (v0.1)
@@ -115,3 +115,24 @@ out = runner.run(source)     # a later run() restores from `store` and resumes
 Working state is in-memory; only checkpoints are durable. So a crash discards
 everything since the last checkpoint and replay reproduces it exactly -- the
 basis for the exactly-once recovery demo in v0.6.
+
+## Exactly-once crash recovery (v0.6)
+
+`demo_exactly_once.py` proves the headline property with a **real crash**: it
+streams a fixed dataset in a worker subprocess, `SIGKILL`s it mid-stream, then
+restarts a fresh worker that restores from the last durable checkpoint and
+finishes. Final per-key totals equal ground truth -- no event lost, none counted
+twice.
+
+```
+$ python demo_exactly_once.py
+[CRASH]   SIGKILL sent mid-stream; no result written yet: True
+[RECOVER] restarting worker; it restores from the last checkpoint...
+recovered: resumed after checkpoint offset 55
+PASS  no loss, no double count -- exactly once.
+```
+
+Why it holds: working state is in-memory and only checkpoints are durable, so a
+crash discards everything since the last checkpoint and replay from the
+checkpointed offset reproduces it exactly. Requires the lsmdb backend
+(`pip install -e ".[lsmdb]"`).
