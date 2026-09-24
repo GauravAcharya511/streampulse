@@ -10,6 +10,7 @@ requires-python = ">=3.10"
 
 [project.optional-dependencies]
 dev = ["pytest>=8"]
+lsmdb = ["lsmdb @ git+https://github.com/GauravAcharya511/lsmdb.git"]
 
 [tool.setuptools.packages.find]
 include = ["streampulse*"]

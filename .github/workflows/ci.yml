@@ -12,4 +12,5 @@ jobs:
         with:
           python-version: '3.10'
       - run: pip install -e ".[dev]"
+      - run: pip install "git+https://github.com/GauravAcharya511/lsmdb.git"
       - run: pytest -q

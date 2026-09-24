@@ -10,12 +10,12 @@ Durable keyed state and checkpoints are backed by
 engine I built — so this project is the streaming layer on top of a storage
 engine, both from scratch.
 
-> Status: **v0.1** — event model, replayable offset-addressed source, and a
-> composable operator pipeline. Roadmap below.
+> Status: **v0.2** — keyed state with pluggable backends (in-memory + lsmdb),
+> stateful running aggregation. Roadmap below.
 
 ## Roadmap
 - **v0.1** — event model + replayable source + operator pipeline (map/filter) ✅
-- **v0.2** — keyed state backed by lsmdb (running per-key aggregation)
+- **v0.2** — keyed state backed by lsmdb (running per-key aggregation) ✅
 - **v0.3** — event-time tumbling windows + watermarks
 - **v0.4** — out-of-order / late event handling (allowed lateness)
 - **v0.5** — checkpointing: atomic snapshot of state + source offset
@@ -39,3 +39,21 @@ out = Pipeline(
 pip install -e ".[dev]"
 pytest -q
 ```
+
+## Keyed state (v0.2)
+
+Stateful aggregation with pluggable state backends -- an in-memory dict, or
+**lsmdb** for durable state that survives restarts:
+
+```python
+from streampulse import (ReplayableSource, Pipeline, KeyedAggregate,
+                         LsmdbStateBackend, Event)
+
+backend = LsmdbStateBackend("state_dir")          # persisted in lsmdb
+src = ReplayableSource([Event("a", 10, 0), Event("a", 20, 1)])
+out = Pipeline(KeyedAggregate(backend)).run(src)
+# out[-1].value == {"count": 2, "sum": 30}  -- and it survives a restart
+backend.close()
+```
+
+Install the lsmdb backend:  `pip install -e ".[lsmdb]"`
