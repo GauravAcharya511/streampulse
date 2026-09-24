@@ -10,14 +10,14 @@ Durable keyed state and checkpoints are backed by
 engine I built — so this project is the streaming layer on top of a storage
 engine, both from scratch.
 
-> Status: **v0.3** — event-time tumbling windows with watermarks and
-> out-of-order / late-event handling. Roadmap below.
+> Status: **v0.4** — allowed lateness (late firing) and a side-output stream
+> for too-late events. Roadmap below.
 
 ## Roadmap
 - **v0.1** — event model + replayable source + operator pipeline (map/filter) ✅
 - **v0.2** — keyed state backed by lsmdb (running per-key aggregation) ✅
 - **v0.3** — event-time tumbling windows + watermarks ✅
-- **v0.4** — out-of-order / late event handling (allowed lateness)
+- **v0.4** — out-of-order / late event handling (allowed lateness) ✅
 - **v0.5** — checkpointing: atomic snapshot of state + source offset
 - **v0.6** — exactly-once demo: crash mid-stream, restore, no loss / no double-count
 - **v0.7** — benchmarks + full README
@@ -76,4 +76,20 @@ out = Pipeline(op).run(ReplayableSource([
 # window [0,10) fires when the watermark (12-2=10) reaches its end:
 #   {"count": 2, "sum": 2, "window_start": 0, "window_end": 10}
 print(op.late_count)   # events dropped for arriving after their window fired
+```
+
+## Late data (v0.4)
+
+`allowed_lateness` keeps a window open past its fire time; a late-but-allowed
+event re-fires the window with an updated result. Events later than that are
+routed to `side_output` instead of silently corrupting a closed result.
+
+```python
+op = EventTimeTumblingWindow(size=10, backend=MemoryStateBackend(),
+                             allowed_lateness=10)
+out = Pipeline(op).run(ReplayableSource([
+    Event("a", 1, 0), Event("a", 1, 10),   # fires window [0,10) with count 1
+    Event("a", 1, 15), Event("a", 1, 4),   # t=4 is late-but-allowed -> re-fires, count 2
+]))
+op.side_output   # [] here; would hold events too late for the grace period
 ```
